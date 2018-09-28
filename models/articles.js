@@ -1,21 +1,27 @@
 var mongoose = require("mongoose");
 
+var Schema = mongoose.Schema;
+
 var articlesSchema = new mongoose.Schema({
 	title: {
-		type: String,
+		type: String
 	},
 	imgLink: {
-		type: String,
+		type: String
 	},
 	storyLink: {
-		type: String,
+		type: String
 	},
 	summary: {
-		type: String,
+		type: String
 	},
 	createdAt: {
 		type: Date,
 		default: Date.now
+	},
+	comments: {
+		type: Schema.Types.ObjectId,
+		ref: "Comments"
 	}
 });
 

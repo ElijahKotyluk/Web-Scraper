@@ -1,5 +1,3 @@
-// NPM Modules
-
 var express = require('express');
 var path = require('path');
 var request = require('request');
@@ -7,129 +5,114 @@ var cheerio = require('cheerio');
 var router = express.Router();
 var mongoose = require('mongoose');
 var Promise = require("bluebird");
-
+var result = [];
 // Assign Mongoose promise
 mongoose.Promise = Promise;
-
 // Mongodb models
-var Articles = require("../models/articles");
-var Comments = require("../models/comments");
-
+var Articles = require("../models/articles.js");
+var Comments =require('../models/comments.js')
 // Website To Be Scraped
-var url = "http://www.goodnewsnetwork.org/latest-news/";
-
-// Test Route To Verify Scraping Works From Route
-router.get('/test', function(req, res) {
-    // body of the html with request
-    request(url, function(error, response, html) {
-        // load that into cheerio and save it to $ for a shorthand selector
-        var $ = cheerio.load(html);
-		var result = [];
-		$(".span6").each(function(i, element) {
-			var title = $(element).find("a").find("img").attr("title");
-			var storyLink = $(element).find("a").attr("href");
-			var imgLink = $(element).find("a").find("img").attr("src");
-			var summary = $(element).find(".td-post-text-excerpt").text();
-			summary = summary.replace(/(\r\n|\n|\r|\t|\s+)/gm, " ").trim();
-			result.push({
-				Title: title,
-				Story: storyLink,
-				Link: imgLink,
-				Summary: summary
-			});
-		});
-		console.log(result);
-		res.send(result);
-    });
-});
-
-// Default route renders the index handlebars view
+var url = "https://www.coindesk.com/";
 router.get('/', function(req, res){
-	res.render('index');
+  res.render('index');
 });
-
-// Scrape the website and assign stories to the database. Checks to verify story has not been added previously.
-router.get('/scrape', function(req, res){
+router.get('/articles', function(req, res){
     request(url, function(error, response, html) {
         var $ = cheerio.load(html);
-		var result = [];
-		// Scrape website
-		$(".span6").each(function(i, element) {
-		    var title = $(element).find("a").find("img").attr("title");
-		    var imgLink = $(element).find("a").find("img").attr("src");
-		    var storyLink = $(element).find("a").attr("href");
-		    var summary = $(element).find(".td-post-text-excerpt").text();
-		    summary = summary.replace(/(\r\n|\n|\r|\t|\s+)/gm, " ").trim();
-			result[i] = ({
-				title: title,
-				imgLink: imgLink,
-				storyLink: storyLink,
-				summary: summary
-			});
-			// Check database to see if story saved previously to database
-			Articles.findOne({'title': title}, function(err, articleRecord) {
-				if(err) {
-					console.log(err);
-				} else {
-					if(articleRecord == null) {
-						Articles.create(result[i], function(err, record) {
-							if(err) throw err;
-							console.log("Record Added");
-						});
-					} else {
-						console.log("No Record Added");
-					}
-				}
-			});
-		});
-    });
+    // Scrape website
+$(".article").each(function(i, element) {
+        var title = $(element).find(".picture").find("a").attr("title");
+        var imgLink = $(element).find(".picture").find("a").find("img").attr("src");
+        var storyLink = $(element).find(".post-info").find("a").attr("href");
+        var summary = $(element).find(".post-info").find("p").text();
+        summary = summary.replace(/(\r\n|\n|\r|\t|\s+)/gm, " ").trim();
+        if(summary===''){
+          return;
+        }else{
+        result[i] = ({
+        id:i,
+        title: title,
+        imgLink: imgLink,
+        storyLink: storyLink,
+        summary: summary
+      });
+      }
+  });
+res.render('index',{articles:result});
 });
-
-// Get all current articles in database
-router.get('/articles', function(req, res){
-	Articles.find().sort({ createdAt: -1 }).exec(function(err, data) {
-		if(err) throw err;
-		res.json(data);
-	});
+});
+router.post('/save/:id', function(req, res){
+    article = result[req.params.id];
+      console.log(article);
+    Articles.findOne({'title': article.title}, function(err, articleRecord) {
+        if(err) {
+          console.log(err);
+        } else {
+          if(articleRecord == null) {
+            Articles.create(article, function(err, record) {
+              if(err) throw err;
+              console.log("Record Added");
+            });
+          } else {
+            console.log("No Record Added");
+          }
+        }
+      });
+ res.render('index',{articles:result});
+ });
+router.get('/articlesaved', function(req, res){
+  Articles.find().sort({ createdAt: -1 }).exec(function(err, data) {
+    if(err) throw err;
+    res.render('index2',{articles:data});
+  });
 });
 
 // Get all comments for one article
 router.get('/comments/:id', function(req, res){
-	Comments.find({'articleId': req.params.id}).exec(function(err, data) {
-		if(err) {
-			console.log(err);
-		} else {
-			res.json(data);
-		}
-	});
+  Comments.find({'articleId': req.params.id}).exec(function(err, data) {
+    if(err) {
+      console.log(err);
+    } else {
+      res.json(data);
+    }
+  });
 });
-
+router.get('/delete/:id', function(req, res){
+  Articles.remove({'_id': req.params.id}).exec(function(err, data) {
+    if(err) {
+      console.log(err);
+    } else {
+      res.redirect('/articlesaved');
+    }
+  });
+});
 // Add comment for article
 router.post('/addcomment/:id', function(req, res){
-	console.log(req.params.id+' '+req.body.comment);
-	Comments.create({
-		articleId: req.params.id,
-		name: req.body.name,
-		comment: req.body.comment
-	}, function(err, docs){
-		if(err){
-			console.log(err);
-		} else {
-			console.log("New Comment Added");
-		}
-	});
+  console.log(req.body);
+  Comments.create({
+    articleId: req.params.id,
+    comment: req.body.comment
+  }, function(err, docs){
+    if(err){
+      console.log(err);
+    } else {
+      console.log("New Comment Added");
+    }
+    res.redirect('/articlesaved');
+  });
 });
 
 // Delete comment for article
 router.get('/deletecomment/:id', function(req, res){
-	console.log(req.params.id)
-	Comments.remove({'_id': req.params.id}).exec(function(err, data){
-		if(err){
-			console.log(err);
-		} else {
-			console.log("Comment deleted");
-		}
-	})
+  console.log(req.params.id)
+  Comments.remove({'_id': req.params.id}).exec(function(err, data){
+    if(err){
+      console.log(err);
+    } else {
+      console.log("Comment deleted");
+    }
+    res.redirect('/articlesaved');
+  })
 });
 
 module.exports = router;

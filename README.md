@@ -15,3 +15,7 @@
 - Handlebars
 - BlueBird
 - BootStrap
+
+
+## Things to still work on:
+1. Figure out the app won't save images to the DB.

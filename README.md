@@ -1,5 +1,5 @@
 # Web-Scraper
-Web scraper made with mongoose db, node, and express.
+ BTC Web scraper made with mongoose db, node, and express.
 
 
 ## Getting Started:
